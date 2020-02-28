@@ -13,15 +13,29 @@ namespace PowerCoreServer
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
-            new Program().Run();
+            while (true)
+            {
+                try
+                {
+                    new Program().Run();
+                }
+                catch { }
+            }
         }
 
-        public void Watch(HttpListenerContext Context)
+        private QuickMan API;
+        public void Run()
         {
-            Console.WriteLine($"[{DateTime.Now.ToString()}] {Context.Request.RemoteEndPoint} connected");
-            API.Respond(File.ReadAllText("jsfs.html"), "text/html", Context);
+            API = new QuickMan();
+            var Endpoints = new Dictionary<string, Action<HttpListenerContext>>();
+
+            Endpoints.Add("stats", Stats);
+            Endpoints.Add("watch", Watch);
+            Endpoints.Add("get", Get);
+
+            API.Start(Endpoints, 20);
         }
+
 
         public bool FrameLock = false;
         public static string CurrentFrame;
@@ -40,12 +54,6 @@ namespace PowerCoreServer
         }
 
 
-        public byte[] Base64Decode(string EncodedData)
-        {
-            return System.Convert.FromBase64String(EncodedData);
-        }
-
-
         public void Get(HttpListenerContext Context)
         {
             MemoryStream ms = new MemoryStream();
@@ -55,7 +63,7 @@ namespace PowerCoreServer
                     while (FrameLock)
                         Thread.Sleep(11);
                     FrameLock = true;
-                    var bytes = Base64Decode(CurrentFrame);
+                    var bytes = Convert.FromBase64String(CurrentFrame);
                     API.Respond(new MemoryStream(bytes), "image/jpeg", Context);
                 }
                 catch { }
@@ -63,18 +71,11 @@ namespace PowerCoreServer
             }
         }
 
-
-        private QuickMan API;
-        public void Run()
+        public void Watch(HttpListenerContext Context)
         {
-            API = new QuickMan();
-            var Endpoints = new Dictionary<string, Action<HttpListenerContext>>();
-
-            Endpoints.Add("stats", Stats);
-            Endpoints.Add("watch", Watch);
-            Endpoints.Add("get", Get);
-
-            API.Start(Endpoints, 20);
+            Console.WriteLine($"[{DateTime.Now.ToString()}] {Context.Request.RemoteEndPoint} connected");
+            API.Respond(File.ReadAllText("jsfs.html"), "text/html", Context);
         }
+
     }
 }
