@@ -11,10 +11,10 @@ namespace TheBitBrine
     {
         #region Server
         #region Server Init
-        private Thread ServerThread;
+        public Thread ServerThread;
         private HttpListener Listener;
         private IPAddress _Address;
-        private int _Port = 1999;
+        private int _Port = AutoPort();
         private Dictionary<string, Action<HttpListenerContext>> _Endpoints;
 
         private static int _MaxSimultaneousConnections = 20;
@@ -31,6 +31,23 @@ namespace TheBitBrine
         {
             _Port = Port;
             _Address = Address;
+            _Endpoints = Endpoints;
+            _MaxSimultaneousConnections = MaxSimultaneousConnections;
+            ServerThread = new Thread(Listen) { IsBackground = false };
+            ServerThread.Start();
+            return $"http://{_Address}:{_Port}/";
+        }
+
+        /// <summary>
+        /// Starts server then returns server's address.
+        /// </summary>
+        /// <param name="Address">IP Address</param>
+        /// <param name="Port">Port</param>
+        /// <param name="Endpoints">Endpoints dictionary</param>
+        /// <returns></returns>
+        public string Start(string Address, int Port, Dictionary<string, Action<HttpListenerContext>> Endpoints, int MaxSimultaneousConnections = 20)
+        {
+            _Port = Port;
             _Endpoints = Endpoints;
             _MaxSimultaneousConnections = MaxSimultaneousConnections;
             ServerThread = new Thread(Listen) { IsBackground = false };
@@ -133,8 +150,22 @@ namespace TheBitBrine
 
         private void AllowListener(string URL)
         {
-            string command = $"http add urlacl url={ new Uri(URL).AbsoluteUri } user=Everyone";
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("netsh", command) { WindowStyle = ProcessWindowStyle.Hidden, CreateNoWindow = true, Verb = "runas" });
+            try
+            {
+                string command = $"http add urlacl url={ new Uri(URL).AbsoluteUri } user=Everyone";
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("netsh", command) { WindowStyle = ProcessWindowStyle.Hidden, CreateNoWindow = true, Verb = "runas" });
+            }
+            catch { }
+        }
+
+        public static int AutoPort()
+        {
+            string assemName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
+            byte[] ba = System.Text.Encoding.Default.GetBytes(assemName);
+            string oPort = ba[0].ToString() + ba[ba.Length - 1].ToString() + ba[ba.Length / 2] * 100;
+            while (long.Parse(oPort) >= 65535)
+                oPort = oPort.Substring(oPort.Length / 2, 4);
+            return int.Parse(oPort);
         }
 
         public void Respond(string Response, HttpListenerContext Context)
